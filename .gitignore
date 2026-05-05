@@ -1,0 +1,19 @@
+# Code::Blocks
+*.layout
+*.depend
+
+# Compilados
+bin/
+obj/
+*.exe
+*.o
+*.obj
+*.out
+
+# Archivos temporales
+*.log
+*.tmp
+
+# Sistema
+.DS_Store
+Thumbs.db
