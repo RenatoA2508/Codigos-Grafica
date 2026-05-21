@@ -37,7 +37,7 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
-		<Unit filename="Tarea3_visualizacion2d.cpp" />
+		<Unit filename="Tarea3_visualizacion2d_Aguilar.cpp" />
 		<Extensions />
 	</Project>
 </CodeBlocks_project_file>
