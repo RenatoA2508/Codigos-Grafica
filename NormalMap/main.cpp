@@ -8,6 +8,25 @@
 
 #include <iostream>
 #include <cmath>
+#include <string>
+#include <vector>
+
+struct TextureSet
+{
+    const char* name;
+    const char* diffusePath;
+    const char* bumpPath;
+    GLuint diffuseTexture;
+    GLuint bumpTexture;
+};
+
+struct AppState
+{
+    std::vector<TextureSet>* textures;
+    int currentTexture;
+    double lastTextureChange;
+    double autoInterval;
+};
 
 const char* vertexShaderSource = R"(
 #version 330 core
@@ -176,6 +195,229 @@ GLuint loadTexture(const char* path)
     return textureID;
 }
 
+void selectTexture(
+    GLFWwindow* window,
+    const std::vector<TextureSet>& textures,
+    int& currentTexture,
+    int nextTexture
+)
+{
+    if(
+        nextTexture < 0 ||
+        nextTexture >= (int)textures.size() ||
+        nextTexture == currentTexture
+    )
+    {
+        return;
+    }
+
+    currentTexture = nextTexture;
+
+    std::string title =
+        std::string("Bump Mapping - ") +
+        textures[currentTexture].name;
+
+    glfwSetWindowTitle(
+        window,
+        title.c_str()
+    );
+
+    std::cout
+        << "Textura activa: "
+        << currentTexture + 1
+        << " - "
+        << textures[currentTexture].name
+        << "\n";
+}
+
+void changeTexture(
+    GLFWwindow* window,
+    AppState* state,
+    int direction
+)
+{
+    if(
+        state == NULL ||
+        state->textures == NULL ||
+        state->textures->empty()
+    )
+    {
+        return;
+    }
+
+    std::vector<TextureSet>& textures =
+        *state->textures;
+
+    int total =
+        (int)textures.size();
+
+    int nextTexture =
+        (state->currentTexture + direction + total) %
+        total;
+
+    selectTexture(
+        window,
+        textures,
+        state->currentTexture,
+        nextTexture
+    );
+
+    state->lastTextureChange =
+        glfwGetTime();
+}
+
+void mouseButtonCallback(
+    GLFWwindow* window,
+    int button,
+    int action,
+    int mods
+)
+{
+    (void)mods;
+
+    if(action != GLFW_PRESS)
+    {
+        return;
+    }
+
+    AppState* state =
+        (AppState*)glfwGetWindowUserPointer(window);
+
+    if(button == GLFW_MOUSE_BUTTON_LEFT)
+    {
+        changeTexture(
+            window,
+            state,
+            1
+        );
+    }
+    else if(button == GLFW_MOUSE_BUTTON_RIGHT)
+    {
+        changeTexture(
+            window,
+            state,
+            -1
+        );
+    }
+}
+
+void scrollCallback(
+    GLFWwindow* window,
+    double xoffset,
+    double yoffset
+)
+{
+    (void)xoffset;
+
+    AppState* state =
+        (AppState*)glfwGetWindowUserPointer(window);
+
+    if(yoffset > 0.0)
+    {
+        changeTexture(
+            window,
+            state,
+            1
+        );
+    }
+    else if(yoffset < 0.0)
+    {
+        changeTexture(
+            window,
+            state,
+            -1
+        );
+    }
+}
+
+void keyCallback(
+    GLFWwindow* window,
+    int key,
+    int scancode,
+    int action,
+    int mods
+)
+{
+    (void)scancode;
+    (void)mods;
+
+    if(action != GLFW_PRESS && action != GLFW_REPEAT)
+    {
+        return;
+    }
+
+    if(key == GLFW_KEY_ESCAPE)
+    {
+        glfwSetWindowShouldClose(window, true);
+        return;
+    }
+
+    AppState* state =
+        (AppState*)glfwGetWindowUserPointer(window);
+
+    if(
+        state == NULL ||
+        state->textures == NULL ||
+        state->textures->empty()
+    )
+    {
+        return;
+    }
+
+    std::vector<TextureSet>& textures =
+        *state->textures;
+
+    int total =
+        (int)textures.size();
+
+    if(key == GLFW_KEY_RIGHT || key == GLFW_KEY_D)
+    {
+        selectTexture(
+            window,
+            textures,
+            state->currentTexture,
+            (state->currentTexture + 1) % total
+        );
+
+        return;
+    }
+
+    if(key == GLFW_KEY_LEFT || key == GLFW_KEY_A)
+    {
+        selectTexture(
+            window,
+            textures,
+            state->currentTexture,
+            (state->currentTexture + total - 1) % total
+        );
+
+        return;
+    }
+
+    int selectedTexture = -1;
+
+    if(key >= GLFW_KEY_1 && key <= GLFW_KEY_9)
+    {
+        selectedTexture = key - GLFW_KEY_1;
+    }
+    else if(key >= GLFW_KEY_KP_1 && key <= GLFW_KEY_KP_9)
+    {
+        selectedTexture = key - GLFW_KEY_KP_1;
+    }
+
+    if(selectedTexture >= 0 && selectedTexture < total)
+    {
+        selectTexture(
+            window,
+            textures,
+            state->currentTexture,
+            selectedTexture
+        );
+
+        return;
+    }
+}
+
 int main()
 {
     glfwInit();
@@ -239,7 +481,7 @@ int main()
         GL_STATIC_DRAW
     );
 
-    // Posición
+    // PosiciÃ³n
     glVertexAttribPointer(
         0,3,GL_FLOAT,GL_FALSE,
         8*sizeof(float),(void*)0
@@ -301,19 +543,117 @@ int main()
 
     // ===== TEXTURAS =====
 
-    GLuint diffuseTexture =
-        loadTexture("textura_color.jpg");
+    std::vector<TextureSet> textures =
+    {
+        {
+            "Bloques de piedra",
+            "textura_color.jpg",
+            "textura_bump.jpg",
+            0,
+            0
+        },
+        {
+            "Madera",
+            "madera_color.jpg",
+            "madera_bump.jpg",
+            0,
+            0
+        },
+        {
+            "Piedra redonda",
+            "piedraN.png",
+            "piedraB.png",
+            0,
+            0
+        },
+        {
+            "Ladrillo",
+            "ladrillo_color.jpg",
+            "ladrillo_bump.jpg",
+            0,
+            0
+        },
+        {
+            "Metal cepillado",
+            "metal_color.jpg",
+            "metal_bump.jpg",
+            0,
+            0
+        }
+    };
 
+    for(int i = 0; i < (int)textures.size(); i++)
+    {
+        textures[i].diffuseTexture =
+            loadTexture(textures[i].diffusePath);
 
+        textures[i].bumpTexture =
+            loadTexture(textures[i].bumpPath);
+    }
 
+    AppState state =
+    {
+        &textures,
+        0,
+        glfwGetTime(),
+        10.0
+    };
 
-    GLuint bumpTexture =
-        loadTexture("textura_bump.jpg");
+    glfwSetWindowUserPointer(
+        window,
+        &state
+    );
+
+    glfwSetKeyCallback(
+        window,
+        keyCallback
+    );
+
+    glfwSetMouseButtonCallback(
+        window,
+        mouseButtonCallback
+    );
+
+    glfwSetScrollCallback(
+        window,
+        scrollCallback
+    );
+
+    glfwSetWindowTitle(
+        window,
+        "Bump Mapping - Bloques de piedra"
+    );
+
+    std::cout
+        << "Texturas cargadas:\n"
+        << "1 Bloques de piedra\n"
+        << "2 Madera\n"
+        << "3 Piedra redonda\n"
+        << "4 Ladrillo\n"
+        << "5 Metal cepillado\n"
+        << "Cambio automatico cada 10 segundos\n"
+        << "Click izquierdo: siguiente textura\n"
+        << "Click derecho: textura anterior\n"
+        << "Rueda del mouse: cambiar textura\n";
 
     // ===== LOOP =====
 
     while(!glfwWindowShouldClose(window))
     {
+        glfwPollEvents();
+
+        if(
+            glfwGetTime() - state.lastTextureChange >=
+            state.autoInterval
+        )
+        {
+            changeTexture(
+                window,
+                &state,
+                1
+            );
+        }
+
         glClear(
             GL_COLOR_BUFFER_BIT |
             GL_DEPTH_BUFFER_BIT
@@ -354,7 +694,7 @@ int main()
 
         glBindTexture(
             GL_TEXTURE_2D,
-            diffuseTexture
+            textures[state.currentTexture].diffuseTexture
         );
 
         glUniform1i(
@@ -370,7 +710,7 @@ int main()
 
         glBindTexture(
             GL_TEXTURE_2D,
-            bumpTexture
+            textures[state.currentTexture].bumpTexture
         );
 
         glUniform1i(
@@ -390,8 +730,6 @@ int main()
         );
 
         glfwSwapBuffers(window);
-
-        glfwPollEvents();
     }
     glfwTerminate();
     return 0;
